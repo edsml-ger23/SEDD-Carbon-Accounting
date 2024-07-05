@@ -18,6 +18,7 @@ from livelossplot import PlotLosses
 import os
 import time
 import torchvision.transforms.functional as F
+from sklearn.metrics import accuracy_score, precision_score, recall_score, f1_score
 
 # Loading in the data
 df = pd.read_csv('final_dataset_filtered.csv')
@@ -70,10 +71,11 @@ def how_much_tree(image):
 #times included for debugging, but currently not printing 
 
 class TreeCrownDataset(Dataset):
-    def __init__(self, dataframe, root_dir, split, num_crops=8, transform=None, val_size=0.15, test_size=0.15, random_state=42):
+    def __init__(self, dataframe, root_dir, split, batch_size, transform=None, val_size=0.15, test_size=0.15, random_state=42):
         self.root_dir = root_dir
         self.transform = transform
-        self.num_crops = num_crops #the set number at 8 is for a batch size of 2, generating approximately 20000 crops per epoch
+        self.batch_size = batch_size
+        self.num_crops = batch_size * 10000 // len(dataframe)
 
         # Split the dataframe into train, validation, and test sets
         train_val_df, test_df = train_test_split(dataframe, test_size=test_size, random_state=random_state)
@@ -175,14 +177,14 @@ transform = transforms.Compose([
 
 root_dir = 'data/tiles/processed'
 
-train_dataset = TreeCrownDataset(dataframe=df, root_dir=root_dir, split='train', transform=transform)
-train_loader = DataLoader(train_dataset, batch_size=32, shuffle=True, num_workers=0)
+train_dataset = TreeCrownDataset(dataframe=df, root_dir=root_dir, batch_size = 8, split='train', transform=transform)
+train_loader = DataLoader(train_dataset, batch_size=8, shuffle=True, num_workers=0)
 
-val_dataset = TreeCrownDataset(dataframe=df, root_dir=root_dir, split='val', transform=transform)
-val_loader = DataLoader(val_dataset, batch_size=32, shuffle=True, num_workers=0)
+val_dataset = TreeCrownDataset(dataframe=df, root_dir=root_dir, batch_size = 8, split='val', transform=transform)
+val_loader = DataLoader(val_dataset, batch_size=8, shuffle=True, num_workers=0)
 
-test_dataset = TreeCrownDataset(dataframe=df, root_dir=root_dir, split='test', transform=transform)
-test_loader = DataLoader(test_dataset, batch_size=32, shuffle=True, num_workers=0)
+test_dataset = TreeCrownDataset(dataframe=df, root_dir=root_dir, batch_size = 8, split='test', transform=transform)
+test_loader = DataLoader(test_dataset, batch_size=8, shuffle=True, num_workers=0)
 
 print('Dataloaders have been rendered')
 
@@ -202,6 +204,27 @@ def set_device(device, idx=0):
 
 device = set_device("cuda")
 
+#Making sure there is a proper class distribution 
+def analyze_class_distribution(dataloader):
+    all_targets = []
+
+    with torch.no_grad():
+        for _, targets, _, _ in dataloader:
+            all_targets.append(targets.cpu().numpy())
+
+    # Flatten the array for analysis
+    all_targets = np.concatenate(all_targets).ravel()
+    
+    # Compute the distribution of each class
+    unique, counts = np.unique(all_targets, return_counts=True)
+    class_distribution = dict(zip(unique, counts))
+    
+    return class_distribution
+
+# Analyze class distribution in the test set
+class_distribution = analyze_class_distribution(train_loader)
+print("Class distribution in the test set:", class_distribution)
+
 # Establishing the Model Architecture
 class ResNet18Encoder(nn.Module):
     def __init__(self):
@@ -215,19 +238,24 @@ class ResNet18Encoder(nn.Module):
 class SemanticSegmentationDecoder(nn.Module):
     def __init__(self, num_classes):
         super(SemanticSegmentationDecoder, self).__init__()
-        self.deeplab_head = DeepLabHead(512, num_classes)  
+        self.deeplab_head = DeepLabHead(512, num_classes)
+        self.dropout = nn.Dropout(p=0.65)  # Add dropout layer with a rate of 0.65
 
     def forward(self, x):
-        return self.deeplab_head(x)
+        x = self.deeplab_head(x)
+        x = self.dropout(x)  # Apply dropout
+        return x
 
 class DistanceMapDecoder(nn.Module):
     def __init__(self):
         super(DistanceMapDecoder, self).__init__()
         self.conv1 = nn.Conv2d(512, 256, kernel_size=3, padding=1)
-        self.conv2 = nn.Conv2d(256, 1, kernel_size=1)  # Single channel output for distance map
+        self.conv2 = nn.Conv2d(256, 1, kernel_size=1)
+        self.dropout = nn.Dropout(p=0.65)  # Add dropout layer with a rate of 0.65
 
     def forward(self, x):
         x = nn.ReLU()(self.conv1(x))
+        x = self.dropout(x)  # Apply dropout
         x = nn.Sigmoid()(self.conv2(x))
         return x
 
@@ -239,19 +267,11 @@ class PartiallyWeightedCategoricalFocalLoss(nn.Module):
         self.beta = beta
 
     def forward(self, input, target):
-        # Compute cross entropy
         ce_loss = nn.CrossEntropyLoss(reduction='none')(input, target)
-
-        # Compute focal loss
         pt = torch.exp(-ce_loss)
         focal_loss = (1 - pt) ** self.gamma * ce_loss
-
-        # Compute the weights
         weights = torch.where(target == 0, self.alpha, self.beta)
-
-        # Apply the weights
         loss = weights * focal_loss
-
         return loss.mean()
 
 class SEDDModel(nn.Module):
@@ -268,11 +288,8 @@ class SEDDModel(nn.Module):
 
         semantic_output = torch.nn.functional.interpolate(semantic_output, size=(224, 224), mode='bilinear', align_corners=True)
         distance_output = torch.nn.functional.interpolate(distance_output, size=(224, 224), mode='bilinear', align_corners=True)
-
+        
         return semantic_output, distance_output
-
-def final_loss(semantic_loss, distance_loss):
-    return semantic_loss + distance_loss
 
 def final_loss(semantic_loss, distance_loss):
     return semantic_loss + distance_loss
@@ -337,19 +354,86 @@ def validate(model, dataloader, semantic_loss_fn, distance_loss_fn):
     val_loss = running_loss / len(dataloader.dataset)
     return val_loss
 
+#Method for evaluating results 
+def evaluate(model, dataloader):
+    model.eval()
+    all_targets = []
+    all_predictions = []
+    all_distances_true = []
+    all_distances_pred = []
+
+    with torch.no_grad():
+        for images, targets, distance_maps, _ in dataloader:
+            # Reshape from 5D tensor to 4D tensor
+            images = images.view(-1, images.size(2), images.size(3), images.size(4))  # [B*ncrops, C, H, W]
+            targets = targets.view(-1, targets.size(3), targets.size(4))  # [B*ncrops, H, W]
+            distance_maps = distance_maps.view(-1, distance_maps.size(2), distance_maps.size(3), distance_maps.size(4))  # [B*ncrops, H, W]
+
+            images = images.to(device)
+            targets = targets.to(device)
+            distance_maps = distance_maps.to(device)
+
+            semantic_outputs, distance_outputs = model(images)
+
+            #rescale targets and semantic outputs to integers 
+            semantic_outputs = semantic_outputs * 255
+            targets = targets * 255
+
+            predictions = torch.argmax(semantic_outputs, dim=1)
+
+            all_targets.append(targets.cpu().numpy())
+            all_predictions.append(predictions.cpu().numpy())
+            all_distances_true.append(distance_maps.cpu().numpy())
+            all_distances_pred.append(distance_outputs.cpu().numpy())
+
+    # Flatten the arrays for metric computation
+    all_targets = np.concatenate(all_targets).ravel()
+    all_predictions = np.concatenate(all_predictions).ravel()
+    all_distances_true = np.concatenate(all_distances_true).ravel()
+    all_distances_pred = np.concatenate(all_distances_pred).ravel()
+
+    # Compute semantic segmentation metrics
+    accuracy = accuracy_score(all_targets, all_predictions)
+    precision = precision_score(all_targets, all_predictions, average='weighted')
+    recall = recall_score(all_targets, all_predictions, average='weighted')
+    f1 = f1_score(all_targets, all_predictions, average='weighted')
+
+    # Compute distance map metrics
+    mse = np.mean((all_distances_true - all_distances_pred) ** 2)
+
+    return accuracy, precision, recall, f1, mse
+
 # Training the Model
-num_epochs = 20
-model = SEDDModel(num_classes=5).to(device)
 semantic_loss_fn = PartiallyWeightedCategoricalFocalLoss(alpha=0.25).to(device)
 distance_loss_fn = nn.MSELoss().to(device)
-optimizer = optim.Adam(model.parameters(), lr=1e-4)
+num_epochs = 200
+model = SEDDModel(num_classes=5).to(device)
+optimizer = optim.SGD(model.parameters(), lr=0.05, momentum=0.9)
+scheduler = optim.lr_scheduler.StepLR(optimizer, step_size=5, gamma=0.1)
+
+#details for early stopping 
+patience = 5
+min_delta = 0.00009
+best_f1 = 0
+counter = 0
 
 for epoch in range(num_epochs):
     print(f'Epoch {epoch+1}/{num_epochs}')
     train_loss = fit(model, train_loader, optimizer, semantic_loss_fn, distance_loss_fn)
     val_loss = validate(model, val_loader, semantic_loss_fn, distance_loss_fn)
     print(f'Epoch [{epoch+1}/{num_epochs}], Train Loss: {train_loss:.4f}, Validation Loss: {val_loss:.4f}')
+    accuracy, precision, recall, val_f1, mse = evaluate(model, val_loader)
+    scheduler.step()
+    #check for early stopping
+    if val_f1 > best_f1 + min_delta:
+        best_f1 = val_f1
+        counter = 0
+    else:
+        counter += 1
+        if counter >= patience:
+            print("Early stopping")
+            break
 
-torch.save(model.state_dict(), "DistanceAndSpecies.pth")
+    torch.save(model.state_dict(), f"PreventOverfitting8_epoch_{epoch+1}.pth")
 
 

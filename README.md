@@ -8,7 +8,7 @@ Tropical forests are essential ecosystems recognized for their carbon sequestrat
 
 ## What Does This Project Do? 
 
-This project combines several pieces of innovative research in the fields of Deep Learning and Dendrology, creating a **one-stop comprehensive pipeline** to take an RGB aerial imagery as an input and output individual tree-level carbon sequestration metrics. The current project is groundtruthed to assess accuracy, but theoretically this procedure could be applied on any RGB aerial imagery and, without any additional data, output tree-specific carbon estimations. 
+This project combines several pieces of innovative research in the fields of Deep Learning and Dendrology, creating a **one-stop comprehensive pipeline** to take an RGB aerial imagery as an input and output individual tree-level carbon sequestration metrics. The current project is groundtruthed to assess accuracy, but theoretically, this procedure could be applied to any RGB aerial imagery and, without any additional data, output tree-specific carbon estimations. 
 
 It combines: 
 
@@ -16,7 +16,7 @@ It combines:
     - The SEDD models are similar to one another but have different loss calculation techniques, a difference explained more in the Report. They are called S-SEDD for Species-SEDD and DS-SEDD for Distance/Species SEDD. 
 - A fine-tuned version of the **DeepForest model**, developed by Weinstein et al. (2020) and accessible at https://github.com/weecology/DeepForest.
 - A **custom diameter at breast height (DBH) model** using XGBoost ensembling to predict DBH based on bounding box information outputted by DeepForest and species information from the SEDD model. 
-- **Five custom statistical models** to predict above ground biomass (AGB) based on DBH; each model is aligned to a particular tree species. 
+- **Five custom statistical models** to predict above-ground biomass (AGB) based on DBH; each model is aligned to a particular tree species. 
 
 Taken together, these pieces provide a proof of concept for being able to take an RGB image and output tree-level carbon estimations. 
 
@@ -52,13 +52,13 @@ The data is already organized in a folder structure that the project expects. Fo
     └── ... (other files)
     ```
 
-*This OneDrive is currently accesible by anyone associated with Imperial College London.*
+*This OneDrive is currently accessible by anyone associated with Imperial College London.*
 
 ## Installation Instructions
 
 To set up the environment for this project, follow these steps:
 
-1. **Create a Conda environment from provided environment.yml file** 
+1. **Create a Conda environment from the provided environment.yml file** 
 
    ```bash
    conda env create -f environment.yml
@@ -77,9 +77,9 @@ There are three folders in this repository:
 
 1. deliverables: In this folder, you can find answers to all your academic questions! It's home to the initial project plan, the final report, and some very pretty presentation slides. 
 
-2. title: A simple folder, this only contains a toml file with the project name for record keeping purposes. 
+2. title: A simple folder, this only contains a toml file with the project name for record-keeping purposes. 
 
-3. ReforesTree: The heart of the code! And a folder named in honor of the project that provided the data for this effort, a database developed by Reiersen et al. (2022) to encourage "the fellow machine learning community to take on the challenge of developing low-cost, scalable, trustworthy and accurate solutions for monitoring, verification and reporting of tropical reforestation inventory." More info on their project available at https://github.com/gyrrei/ReforesTree. 
+3. ReforesTree: The heart of the code! And a folder named in honor of the project that provided the data for this effort, a database developed by Reiersen et al. (2022) to encourage "the fellow machine learning community to take on the challenge of developing low-cost, scalable, trustworthy and accurate solutions for monitoring, verification, and reporting of tropical reforestation inventory." More info on their project is available at https://github.com/gyrrei/ReforesTree. 
 
 ### The ReforesTree Folder 
 
@@ -93,19 +93,19 @@ Scripts:
 
 Utils: 
 1. **[data_utils.py](ReforesTree/data_utils.py)**: This file provides utilities and helper functions for all non-model related tasks—enhancing images, handling bounding boxes, performing various pre-processing and post-processing, calculating AGB, and visualization. It is split into sections for pre-processing, post-processing, and applying allometric equations. 
-2. **[model_utils.py](ReforesTree/model_utils.py)**: This file provides utilities and helper functions for all model related tasks. It is split also into sections, each one representing a different model development process. The sections are DeepForest Training, Diameter Model, SEDD model (inclusive of both S-SEDD and DS-SEDD), and allometric equation development. 
+2. **[model_utils.py](ReforesTree/model_utils.py)**: This file provides utilities and helper functions for all model-related tasks. It is split also into sections, each one representing a different model development process. The sections are DeepForest Training, Diameter Model, SEDD model (inclusive of both S-SEDD and DS-SEDD), and allometric equation development. 
 
 Next, there are seven **Jupyter Notebooks**, giving the user a behind-the-scenes look into the iterative process of model development as well as pre and post processing. Comments and markdown cells in those individual notebooks will provide even more context. 
 
 Model development: 
-1. **[model_development.ipynb](ReforesTree/model_development.ipynb)**: Grabbing the model_development moniker is the notebook behind the main model of the project—the SEDD model. Since the S-SEDD and DS-SEDD models are submitted for training and evaluation via scripts, this notebook mostly serves as a testing ground. Representative of the S-SEDD model, it uses a smaller dataframe to visualize and test the training process. 
-2. **[allometric_equations.ipynb](ReforesTree/allometric_equations.ipynb)**: This notebook details the process to train, validate, test, and choose the AGB prediciton model, including other models that were not chosen. 
+1. **[model_development.ipynb](ReforesTree/model_development.ipynb)**: Grabbing the model_development moniker is the notebook behind the main model of the project—the SEDD model. Since the S-SEDD and DS-SEDD models are submitted for training and evaluation via scripts, this notebook mostly serves as a testing ground. Representative of the S-SEDD model, it uses a smaller data frame to visualize and test the training process. 
+2. **[allometric_equations.ipynb](ReforesTree/allometric_equations.ipynb)**: This notebook details the process of training, validating, testing, and choosing the AGB prediction model, including other models that were not chosen. 
 3. **[diameter_model.ipynb](ReforesTree/diameter_model.ipynb)**: As with the allometric_equation notebook, this notebook details the process of training, validating, and testing the DBH model. It also includes other attempted models that were not chosen. 
 4. **[deep_forest_training.ipynb](ReforesTree/deep_forest_training.ipynb)**: Not quite model development, this file shows the fine-tuning process of the DeepForest model as well as generates the bounding box outputs to be used in post-processing alongside the outputs from the SEDD evaluation. 
 
 Pre and post processing: 
-1. **[pre_processing.ipynb](ReforesTree/pre_processing.ipynb)**: It is what it sounds like—a notebook focused on pre-processing, including testing different image enhancements, culling tiles with two much white space, and counting how often each species appears in the data. 
-2. & 3. **[S-SEDD_post_processing.ipynb](ReforesTree/S-SEDD_post_processing.ipynb)** and **[DS-SEDD_post_processing.ipynb](ReforesTree/DS-SEDD_post_processing.ipynb)**: These virually identical files load in the outputs from the two different SEDD models, kept distinct so final solutions can be compared. They complete the pipeline, combining the output from the SEDD models with the DeepForest model, then passing that combined dataframe to the DBH model, before using the custom AGB models to predict biomass and using simple math to calculate carbon sequestration potential. 
+1. **[pre_processing.ipynb](ReforesTree/pre_processing.ipynb)**: It is what it sounds like—a notebook focused on pre-processing, including testing different image enhancements, culling tiles with too much white space, and counting how often each species appears in the data. 
+2. & 3. **[S-SEDD_post_processing.ipynb](ReforesTree/S-SEDD_post_processing.ipynb)** and **[DS-SEDD_post_processing.ipynb](ReforesTree/DS-SEDD_post_processing.ipynb)**: These virtually identical files load in the outputs from the two different SEDD models, kept distinct so final solutions can be compared. They complete the pipeline, combining the output from the SEDD models with the DeepForest model, then passing that combined data frame to the DBH model, before using the custom AGB models to predict biomass and using simple math to calculate carbon sequestration potential. 
 
 ### Testing 
 

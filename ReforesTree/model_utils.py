@@ -21,7 +21,7 @@ The utilities are organized into several sections:
    distance map regression for tree crown detection and analysis.
 
 4. **Allometric Relationship Visualization**: Tools for visualizing the relationship 
-   between crown diameter and AGB, including the fitting and evaluation of various 
+   between DBH and AGB, including the fitting and evaluation of various 
    regression models (linear, log-log, exponential, polynomial, GAM, etc.).
 
 5. **Cross-Validation Utilities**: Functions to perform cross-validation for different 
@@ -526,7 +526,7 @@ def plot_results(y_test, y_pred):
     plt.scatter(indices, y_test, color="blue", label="Actual Diameter", alpha=0.6)
     plt.scatter(indices, y_pred, color="red", label="Predicted Diameter", alpha=0.6)
     plt.xlabel("Index")
-    plt.ylabel("Diameter (units)")
+    plt.ylabel("Diameter")
     plt.title("Scatter Plot of Actual vs. Predicted DBH")
     plt.legend()
     plt.grid(True)
@@ -1920,8 +1920,8 @@ The functions included in this section support the following tasks:
   robustness of the fitted models across different folds of the data. This ensures 
   that the models generalize well to unseen data.
 
-- **Visualization**: Functions to plot and visualize the relationships between crown 
-  diameter and AGB for different species, making it easier to interpret the fitted 
+- **Visualization**: Functions to plot and visualize the relationships between DBH
+  and AGB for different species, making it easier to interpret the fitted 
   models and understand the underlying biological patterns.
 
 - **AGB Calculation**: Functions to apply the fitted models for predicting AGB based 
@@ -1935,7 +1935,7 @@ research, carbon accounting, and sustainable forest management.
 
 def visualize_allometric_relationship(df, title):
     """
-    Visualize the allometric relationship between crown diameter and above-ground biomass.
+    Visualize the allometric relationship between DBH and above-ground biomass.
 
     Parameters:
     - df (pd.DataFrame): the input dataframe
@@ -2002,7 +2002,7 @@ def fit_and_evaluate_log_log_model(data, species):
     plt.scatter(X_test, y_test, color="blue", label="Actual (log scale)")
     plt.scatter(X_test, y_pred, color="red", label="Predicted (log scale)")
     plt.title(f"{species} - Log(Crown Area) vs. Log(Above-Ground Biomass)")
-    plt.xlabel("Log(Crown Area) (cm)")
+    plt.xlabel("Log(DBH) (cm)")
     plt.ylabel("Log(Above-Ground Biomass) (kg)")
     plt.legend()
     plt.show()
@@ -2059,7 +2059,7 @@ def fit_and_evaluate_linear_model(data, species):
     plt.scatter(X_test, y_test, color="blue", label="Actual")
     plt.scatter(X_test, y_pred, color="red", label="Predicted")
     plt.title(f"{species} - Linear Model")
-    plt.xlabel("Crown Area (cm)")
+    plt.xlabel("DBH (cm)")
     plt.ylabel("Above-Ground Biomass (kg)")
     plt.legend()
     plt.show()
@@ -2119,7 +2119,7 @@ def fit_and_evaluate_exponential_model(data, species):
     plt.scatter(X_test, y_test_exp, color="blue", label="Actual")
     plt.scatter(X_test, y_pred_exp, color="red", label="Predicted")
     plt.title(f"{species} - Exponential Model")
-    plt.xlabel("Crown Area (cm)")
+    plt.xlabel("DBH (cm)")
     plt.ylabel("Above-Ground Biomass (kg)")
     plt.legend()
     plt.show()
@@ -2176,7 +2176,7 @@ def fit_and_evaluate_logarithmic_model(data, species):
     plt.scatter(X_test, y_test, color="blue", label="Actual")
     plt.scatter(X_test, y_pred, color="red", label="Predicted")
     plt.title(f"{species} - Logarithmic Model")
-    plt.xlabel("Log(Crown Area) (cm)")
+    plt.xlabel("Log(DBH) (cm)")
     plt.ylabel("Above-Ground Biomass (kg)")
     plt.legend()
     plt.show()
@@ -2231,7 +2231,7 @@ def fit_and_evaluate_polynomial_model(data, species, degree=2):
     plt.scatter(X_test[:, 1], y_test, color="blue", label="Actual")
     plt.scatter(X_test[:, 1], y_pred, color="red", label="Predicted")
     plt.title(f"{species} - Polynomial Model (Degree {degree})")
-    plt.xlabel("Crown Area (cm)")
+    plt.xlabel("DBH (cm)")
     plt.ylabel("Above-Ground Biomass (kg)")
     plt.legend()
     plt.show()
@@ -2274,7 +2274,7 @@ def fit_and_evaluate_gam_model(data, species):
     plt.scatter(X, y, color="blue", label="Actual")
     plt.scatter(X, y_pred, color="red", label="Predicted")
     plt.title(f"{species} - Generalized Additive Model")
-    plt.xlabel("Crown Area (cm)")
+    plt.xlabel("DBH (cm)")
     plt.ylabel("Above-Ground Biomass (kg)")
     plt.legend()
     plt.show()
